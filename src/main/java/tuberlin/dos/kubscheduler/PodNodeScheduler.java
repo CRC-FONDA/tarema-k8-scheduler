@@ -11,9 +11,23 @@ public class PodNodeScheduler {
 
     private static PodList unscheduledPods = new PodList();
 
+    public static NodeList nodeList;
+
+    public static PodListWithIndex podList;
+
     private PodNodeScheduler() {
 
     }
+
+    static synchronized Optional<Pair<Pod, Node>> schedule(Pod podToSchedule, String str) {
+        if (podToSchedule != null) {
+            return schedule(podList, nodeList, podToSchedule);
+        } else {
+            scheduleQueue(podList, nodeList);
+            return Optional.empty();
+        }
+    }
+
 
     static Optional<Pair<Pod, Node>> schedule(PodList existingPods, NodeList existingNodes, Pod podToSchedule) {
 
@@ -41,7 +55,7 @@ public class PodNodeScheduler {
         }
 
         List<NodeWithAlloc> nodesWithAllocList = estimateFreeNodeCapabilities(existingPods, existingNodes);
-        // nodeswithalloc ist hier falsch. Wahrscheinlich wurde etwas nicht rausgelöscht. Noch mal starten
+
         AtomicReference<Triplet<Pod, Node, Integer>> nodePodWithHighestScore = new AtomicReference<>(new Triplet<>(null, null, -1));
 
         unscheduledPods.getItems().forEach(pod -> {
@@ -59,7 +73,11 @@ public class PodNodeScheduler {
         });
 
         if (nodePodWithHighestScore.get().getValue2() > -1) {
-            bindPodToNode(nodePodWithHighestScore.get().getValue0(), nodePodWithHighestScore.get().getValue1(), nodePodWithHighestScore.get().getValue2());
+            Pair<Pod, Node> pair = bindPodToNode(nodePodWithHighestScore.get().getValue0(), nodePodWithHighestScore.get().getValue1(), nodePodWithHighestScore.get().getValue2());
+            unscheduledPods.getItems().remove(nodePodWithHighestScore.get().getValue0());
+            Pod podToAdd = pair.getValue0();
+            podToAdd.getSpec().setNodeName(pair.getValue1().getMetadata().getName());
+            PodNodeScheduler.podList.addPodToList(podToAdd);
         }
 
     }
@@ -107,6 +125,7 @@ public class PodNodeScheduler {
         nodesWithAllocList.forEach(node -> {
 
             // Hat die Node ausreichend CPU ind Speicher, um den Pod zu schedulen
+
             if (node.getFree_cpu().compareTo(Quantity.getAmountInBytes(podToSchedule.getSpec().getContainers().get(0).getResources().getLimits().get("cpu"))) >= 0 &&
                     node.getFree_ram().compareTo(Quantity.getAmountInBytes(podToSchedule.getSpec().getContainers().get(0).getResources().getLimits().get("memory"))) >= 0) {
 
@@ -155,8 +174,9 @@ public class PodNodeScheduler {
         b1.setTarget(objectReference);
 
         try {
+            System.out.println("Bind " + pod.getMetadata().getName() + " to " + node.getMetadata().getName());
             var bind = KubernetesClientSingleton.getKubernetesClient().bindings().create(b1);
-          //  TaskDB.addSchedulingReportToDB(pod, node, score);
+            //  TaskDB.addSchedulingReportToDB(pod, node, score);
             return new Pair<Pod, Node>(pod, node);
         } catch (Exception e) {
             e.printStackTrace();

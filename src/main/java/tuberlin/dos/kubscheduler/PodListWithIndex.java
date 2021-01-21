@@ -13,6 +13,11 @@ public class PodListWithIndex extends PodList {
 
     }
 
+    /**
+     * Overrides existing pod if pod is already in list
+     *
+     * @param pod
+     */
     public void addPodToList(Pod pod) {
         nameIndexMap.put(pod.getMetadata().getName(), pod);
     }

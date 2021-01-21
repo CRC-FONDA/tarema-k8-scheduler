@@ -22,23 +22,14 @@ public class CurrentPodNodeStatus {
 
     private ConcurrentLinkedQueue<SharedInformerEventListener> workerQueueNode;
 
-    private ConcurrentLinkedQueue<SharedInformerEventListener> workerQueuePod;
-
     DefaultSharedIndexInformer<Node, NodeList> defaultSharedIndexInformerNode;
-
-    DefaultSharedIndexInformer<Pod, PodList> defaultSharedIndexInformerPod;
-
-    private NodeList nodeList;
-
-    private PodListWithIndex podList;
 
     public CurrentPodNodeStatus(KubernetesClient client) {
         this.client = client;
 
-        this.podList = new PodListWithIndex();
+        PodNodeScheduler.podList = new PodListWithIndex();
 
         this.workerQueueNode = new ConcurrentLinkedQueue<>();
-        this.workerQueuePod = new ConcurrentLinkedQueue<>();
 
         this.operationContext = new OperationContext();
 
@@ -63,21 +54,20 @@ public class CurrentPodNodeStatus {
 
                 switch (action) {
                     case ADDED:
-                        podList.addPodToList(pod);
+                        PodNodeScheduler.podList.addPodToList(pod);
                         if (pod.getSpec().getNodeName() == null) {
-                            Pair<Pod, Node> scheduledPair = PodNodeScheduler.schedule(podList, nodeList, pod).orElse(new Pair<>(pod, null));
+                            Pair<Pod, Node> scheduledPair = PodNodeScheduler.schedule(pod, "").orElse(new Pair<>(pod, null));
                             pod.getSpec().setNodeName(scheduledPair.getValue1().getMetadata().getName()); // Hier stimmt evtl etwas nicht
-                            podList.addPodToList(pod);
+                            PodNodeScheduler.podList.addPodToList(pod);
                         }
                         break;
                     case MODIFIED:
                         break;
                     case DELETED:
-                        podList.removePodFromList(pod); //klappt das?
-                        PodNodeScheduler.scheduleQueue(podList, nodeList);
+                        PodNodeScheduler.podList.removePodFromList(pod); //klappt das?
+                        PodNodeScheduler.schedule( null, "");
                 }
 
-                System.out.println(podList.getItems());
             }
 
             @Override
@@ -111,12 +101,12 @@ public class CurrentPodNodeStatus {
 
             @Override
             public Object list(ListOptions params, String namespace, OperationContext context) {
-                nodeList = client.nodes().list();
-                return nodeList;
+                PodNodeScheduler.nodeList = client.nodes().list();
+                return PodNodeScheduler.nodeList;
             }
         };
 
-        defaultSharedIndexInformerNode = new DefaultSharedIndexInformer(Node.class, listerWatcher, 60000, operationContext, workerQueueNode);
+        defaultSharedIndexInformerNode = new DefaultSharedIndexInformer(Node.class, listerWatcher, 600000, operationContext, workerQueueNode);
 
         try {
             defaultSharedIndexInformerNode.run();
@@ -138,90 +128,6 @@ public class CurrentPodNodeStatus {
             @Override
             public void onDelete(Node obj, boolean deletedFinalStateUnknown) {
 
-            }
-        });
-    }
-
-    /**
-     *
-     */
-    private void setUpIndexInformerPod() {
-        ListerWatcher listerWatcher = new ListerWatcher() {
-            @Override
-            public Watch watch(ListOptions params, String namespace, OperationContext context, Watcher watcher) {
-
-                params.setFieldSelector("spec.schedulerName=new-scheduler");
-
-                return client.pods().watch(params, new Watcher<Pod>() {
-                    @Override
-                    public void eventReceived(Action action, Pod resource) {
-                        if (action.name().equals("ADDED")) {
-
-                        }
-                    }
-
-                    @Override
-                    public void onClose(WatcherException cause) {
-                        System.out.println("On close");
-                    }
-                });
-            }
-
-            @Override
-            public Object list(ListOptions params, String namespace, OperationContext context) {
-
-                params.setFieldSelector("spec.schedulerName=new-scheduler");
-               /* PodList podListToReturn = null;
-
-                try {
-                    podListToReturn = client.pods().list();
-
-                    var filteredPodList = podListToReturn.getItems().stream().filter(pod -> {
-                        if (pod.getSpec().getNodeName() == null && pod.getSpec().getSchedulerName().equalsIgnoreCase("new-scheduler")) {
-                            return true;
-                        } else {
-                            return false;
-                        }
-                    }).collect(Collectors.toList());
-
-
-                    podList.setItems(podListToReturn.getItems());
-                    podListToReturn.setItems(filteredPodList);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-
-                return podListToReturn;
-                */
-                return client.pods().list(params);
-            }
-        };
-
-        defaultSharedIndexInformerPod = new DefaultSharedIndexInformer(Pod.class, listerWatcher, 5000, operationContext, workerQueuePod);
-
-        try {
-            defaultSharedIndexInformerPod.run();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        defaultSharedIndexInformerPod.addEventHandler(new ResourceEventHandler<Pod>() {
-            @Override
-            public void onAdd(Pod obj) {
-                if (obj.getSpec().getNodeName() == null) {
-                    PodNodeScheduler.schedule(podList, nodeList, obj);
-                }
-
-            }
-
-            @Override
-            public void onUpdate(Pod oldObj, Pod newObj) {
-            }
-
-            @Override
-            public void onDelete(Pod obj, boolean deletedFinalStateUnknown) {
-                System.out.println("pod got deleted " + obj.getMetadata().getName() + " with boolean: " + deletedFinalStateUnknown);
-                PodNodeScheduler.scheduleQueue(podList, nodeList);
             }
         });
     }

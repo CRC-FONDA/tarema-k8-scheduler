@@ -88,6 +88,18 @@ public class NodeWithAlloc implements Comparable<NodeWithAlloc> {
     }
 
     @Override
+    public String toString() {
+        return "NodeWithAlloc{" +
+                "nodeName='" + nodeName + '\'' +
+                ", current_cpu_usage=" + current_cpu_usage +
+                ", current_ram_usage=" + current_ram_usage +
+                ", free_cpu=" + free_cpu +
+                ", free_ram=" + free_ram +
+                ", node=" + node +
+                '}';
+    }
+
+    @Override
     public int compareTo(NodeWithAlloc o) {
         if(getNode().getMetadata().getName().equals(o.getNode().getMetadata().getName())) {
             return 0;
