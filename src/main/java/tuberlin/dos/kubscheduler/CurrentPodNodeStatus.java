@@ -1,6 +1,9 @@
 package tuberlin.dos.kubscheduler;
 
-import io.fabric8.kubernetes.api.model.*;
+import io.fabric8.kubernetes.api.model.ListOptions;
+import io.fabric8.kubernetes.api.model.Node;
+import io.fabric8.kubernetes.api.model.NodeList;
+import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.Watch;
 import io.fabric8.kubernetes.client.Watcher;
@@ -16,13 +19,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class CurrentPodNodeStatus {
 
-    private KubernetesClient client;
-
-    private OperationContext operationContext;
-
-    private ConcurrentLinkedQueue<SharedInformerEventListener> workerQueueNode;
-
     DefaultSharedIndexInformer<Node, NodeList> defaultSharedIndexInformerNode;
+    private KubernetesClient client;
+    private OperationContext operationContext;
+    private ConcurrentLinkedQueue<SharedInformerEventListener> workerQueueNode;
 
     public CurrentPodNodeStatus(KubernetesClient client) {
         this.client = client;
@@ -47,26 +47,29 @@ public class CurrentPodNodeStatus {
         ListOptions options = new ListOptions();
         options.setFieldSelector("spec.schedulerName=new-scheduler");
 
-        client.pods().watch(new Watcher<Pod>() {
+        client.pods().watch(new Watcher<>() {
             @Override
             public void eventReceived(Action action, Pod pod) {
 
-
+                PodWithAge pwa = new PodWithAge(pod);
                 switch (action) {
                     case ADDED:
-                        PodNodeScheduler.podList.addPodToList(pod);
-                        if (pod.getSpec().getNodeName() == null) {
-                            Pair<Pod, Node> scheduledPair = PodNodeScheduler.schedule(pod, "").orElse(new Pair<>(pod, null));
-                            pod.getSpec().setNodeName(scheduledPair.getValue1().getMetadata().getName()); // Hier stimmt evtl etwas nicht
-                            PodNodeScheduler.podList.addPodToList(pod);
+                        PodNodeScheduler.podList.addPodToList(pwa);
+                        if (pwa.getSpec().getNodeName() == null) {
+                            Pair<Pod, Node> scheduledPair = PodNodeScheduler.schedule(pwa, "").orElse(new Pair<>(pwa, null));
+                            pwa.getSpec().setNodeName(scheduledPair.getValue1().getMetadata().getName()); // Hier stimmt evtl etwas nicht
+                            PodNodeScheduler.podList.addPodToList(pwa);
                         }
                         break;
                     case MODIFIED:
                         break;
                     case DELETED:
-                        PodNodeScheduler.podList.removePodFromList(pod); //klappt das?
-                        PodNodeScheduler.schedule( null, "");
+                        PodNodeScheduler.podList.removePodFromList(pwa); //klappt das?
+                        PodNodeScheduler.schedule(null, "");
                 }
+
+                //  System.out.println("Currently unscheduled pods: ");
+                //  PodNodeScheduler.unscheduledPods.getItems().forEach(podItem ->System.out.println(podItem.getMetadata().getName() + " age " + ((PodWithAge)podItem).getAge()) );
 
             }
 
@@ -86,7 +89,7 @@ public class CurrentPodNodeStatus {
         ListerWatcher listerWatcher = new ListerWatcher() {
             @Override
             public Watch watch(ListOptions params, String namespace, OperationContext context, Watcher watcher) {
-                return client.nodes().watch(new Watcher<Node>() {
+                return client.nodes().watch(new Watcher<>() {
                     @Override
                     public void eventReceived(Action action, Node resource) {
 
@@ -114,7 +117,7 @@ public class CurrentPodNodeStatus {
             e.printStackTrace();
         }
 
-        defaultSharedIndexInformerNode.addEventHandler(new ResourceEventHandler<Node>() {
+        defaultSharedIndexInformerNode.addEventHandler(new ResourceEventHandler<>() {
             @Override
             public void onAdd(Node obj) {
 
