@@ -4,29 +4,29 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodList;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public class PodListWithIndex extends PodList {
 
-    private Map<String, Pod> nameIndexMap = new HashMap<>(); // Welche Map ist hier am effizientesten
+    private ConcurrentMap<String, Pod> nameIndexMap = new ConcurrentHashMap<>(); // Welche Map ist hier am effizientesten
 
     public PodListWithIndex() {
 
     }
 
     public PodListWithIndex(List<Pod> pods) {
-        pods.forEach(pod -> nameIndexMap.put(pod.getMetadata().getName(), pod));
+        pods.forEach(pod -> nameIndexMap.putIfAbsent(pod.getMetadata().getName(), pod));
     }
 
     /**
      * Overrides existing pod if pod is already in list
      *
-     * @param pod
+     * @param pod insert pod into the concurrent map
      */
     public void addPodToList(Pod pod) {
-        nameIndexMap.put(pod.getMetadata().getName(), pod);
+        nameIndexMap.putIfAbsent(pod.getMetadata().getName(), pod);
     }
 
     public void removePodFromList(Pod pod) {

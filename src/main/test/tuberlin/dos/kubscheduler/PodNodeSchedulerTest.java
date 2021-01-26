@@ -1,6 +1,7 @@
 package tuberlin.dos.kubscheduler;
 
 import io.fabric8.kubernetes.api.model.*;
+import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import junit.framework.TestCase;
 import org.junit.Assert;
@@ -28,15 +29,16 @@ public class PodNodeSchedulerTest extends TestCase {
         PodWithAge pod3 = new PodWithAge(new ObjectMeta(), new PodSpec(), new PodStatus());
         pod3.getMetadata().setName("pod3");
         pod3.setAge(BigDecimal.TEN);
-        PodNodeScheduler.podList = new PodListWithIndex(Arrays.asList(pod1, pod2, pod3));
+        CurrentPodNodeStatus status = new CurrentPodNodeStatus(new DefaultKubernetesClient());
+        status.podList = new PodListWithIndex(Arrays.asList(pod1, pod2, pod3));
         PodNodeScheduler.unscheduledPods = new PodListWithIndex(Arrays.asList(pod1, pod2, pod3));
         Node n1 = new Node();
-        PodNodeScheduler.nodeList = new NodeList();
+        status.nodeList = new NodeList();
         KubernetesClient kubernetesClient = KubernetesClientSingleton.getKubernetesClient();//.bindings().create(b1)
 
         KubernetesClient clientMock = mock(KubernetesClient.class);
       //  when(clientMock.getKubernetesClient().bindings().create(b1)(anyString())).thenReturn(false);
-        PodNodeScheduler.scheduleQueue(PodNodeScheduler.podList, PodNodeScheduler.nodeList);
+        PodNodeScheduler.scheduleQueue(status.podList, status.nodeList);
      //   Assert.assertEquals(PodNodeScheduler.podList.getItems().size(), 2);
     }
 
@@ -50,10 +52,11 @@ public class PodNodeSchedulerTest extends TestCase {
         PodWithAge pod3 = new PodWithAge(new ObjectMeta(), new PodSpec(), new PodStatus());
         pod3.getMetadata().setName("pod3");
         pod3.setAge(BigDecimal.TEN);
-        PodNodeScheduler.podList = new PodListWithIndex(Arrays.asList(pod1, pod2, pod3));
+        CurrentPodNodeStatus status = new CurrentPodNodeStatus(new DefaultKubernetesClient());
+        status.podList = new PodListWithIndex(Arrays.asList(pod1, pod2, pod3));
         PodNodeScheduler.unscheduledPods = new PodListWithIndex(Arrays.asList(pod1, pod2, pod3));
         Node n1 = new Node();
-        PodNodeScheduler.nodeList = new NodeList();
+        status.nodeList = new NodeList();
 
         Optional<Pod> starvingPod = PodNodeScheduler.getStarvingPod();
         Assert.assertTrue(starvingPod.isPresent());
@@ -61,7 +64,7 @@ public class PodNodeSchedulerTest extends TestCase {
         Assert.assertEquals(starvingPod.get().getMetadata().getName(), "pod3");
         Assert.assertEquals(((PodWithAge) starvingPod.get()).getAge(), BigDecimal.TEN);
         // pod3 is not on top of the queue
-        Assert.assertEquals(PodNodeScheduler.podList.getItems().indexOf(pod3), 2);
+        Assert.assertEquals(status.podList.getItems().indexOf(pod3), 2);
     }
 
     public void testNoStarvingPodsDespiteHighAge() {
@@ -74,10 +77,11 @@ public class PodNodeSchedulerTest extends TestCase {
         PodWithAge pod3 = new PodWithAge(new ObjectMeta(), new PodSpec(), new PodStatus());
         pod3.getMetadata().setName("pod3");
         pod3.setAge(BigDecimal.TEN);
-        PodNodeScheduler.podList = new PodListWithIndex(Arrays.asList(pod1, pod2, pod3));
+        CurrentPodNodeStatus status = new CurrentPodNodeStatus(new DefaultKubernetesClient());
+        status.podList = new PodListWithIndex(Arrays.asList(pod1, pod2, pod3));
         PodNodeScheduler.unscheduledPods = new PodListWithIndex(Arrays.asList(pod1, pod2, pod3));
         Node n1 = new Node();
-        PodNodeScheduler.nodeList = new NodeList();
+        status.nodeList = new NodeList();
 
         Optional<Pod> starvingPod = PodNodeScheduler.getStarvingPod();
         Assert.assertTrue(starvingPod.isEmpty());

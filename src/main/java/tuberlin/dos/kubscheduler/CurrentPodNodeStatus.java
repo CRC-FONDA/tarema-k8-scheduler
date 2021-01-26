@@ -24,10 +24,14 @@ public class CurrentPodNodeStatus {
     private OperationContext operationContext;
     private ConcurrentLinkedQueue<SharedInformerEventListener> workerQueueNode;
 
+    protected NodeList nodeList;
+    protected PodListWithIndex podList;
+
+
     public CurrentPodNodeStatus(KubernetesClient client) {
         this.client = client;
 
-        PodNodeScheduler.podList = new PodListWithIndex();
+        this.podList = new PodListWithIndex();
 
         this.workerQueueNode = new ConcurrentLinkedQueue<>();
 
@@ -46,6 +50,7 @@ public class CurrentPodNodeStatus {
 
         ListOptions options = new ListOptions();
         options.setFieldSelector("spec.schedulerName=new-scheduler");
+        PodNodeScheduler.unscheduledPods = new PodListWithIndex();
 
         client.pods().watch(new Watcher<>() {
             @Override
@@ -54,18 +59,18 @@ public class CurrentPodNodeStatus {
                 PodWithAge pwa = new PodWithAge(pod);
                 switch (action) {
                     case ADDED:
-                        PodNodeScheduler.podList.addPodToList(pwa);
+                        podList.addPodToList(pwa);
                         if (pwa.getSpec().getNodeName() == null) {
-                            Pair<Pod, Node> scheduledPair = PodNodeScheduler.schedule(pwa, "").orElse(new Pair<>(pwa, null));
+                            Pair<Pod, Node> scheduledPair = PodNodeScheduler.schedule(pwa, podList, nodeList).orElse(new Pair<>(pwa, null));
                             pwa.getSpec().setNodeName(scheduledPair.getValue1().getMetadata().getName()); // Hier stimmt evtl etwas nicht
-                            PodNodeScheduler.podList.addPodToList(pwa);
+                            podList.addPodToList(pwa);
                         }
                         break;
                     case MODIFIED:
                         break;
                     case DELETED:
-                        PodNodeScheduler.podList.removePodFromList(pwa); //klappt das?
-                        PodNodeScheduler.schedule(null, "");
+                        podList.removePodFromList(pwa); //klappt das?
+                        PodNodeScheduler.schedule(null, podList, nodeList);
                 }
 
                 //  System.out.println("Currently unscheduled pods: ");
@@ -104,8 +109,8 @@ public class CurrentPodNodeStatus {
 
             @Override
             public Object list(ListOptions params, String namespace, OperationContext context) {
-                PodNodeScheduler.nodeList = client.nodes().list();
-                return PodNodeScheduler.nodeList;
+                nodeList = client.nodes().list();
+                return nodeList;
             }
         };
 
