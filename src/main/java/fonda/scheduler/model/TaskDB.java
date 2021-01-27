@@ -1,4 +1,4 @@
-package tuberlin.dos.kubscheduler;
+package fonda.scheduler.model;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.fabric8.kubernetes.api.model.Node;

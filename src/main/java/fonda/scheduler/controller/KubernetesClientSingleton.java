@@ -1,4 +1,4 @@
-package tuberlin.dos.kubscheduler;
+package fonda.scheduler.controller;
 
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;

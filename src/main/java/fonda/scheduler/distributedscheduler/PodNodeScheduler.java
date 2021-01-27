@@ -1,5 +1,9 @@
-package tuberlin.dos.kubscheduler;
+package fonda.scheduler.distributedscheduler;
 
+import fonda.scheduler.controller.KubernetesClientSingleton;
+import fonda.scheduler.model.NodeWithAlloc;
+import fonda.scheduler.model.PodListWithIndex;
+import fonda.scheduler.model.PodWithAge;
 import io.fabric8.kubernetes.api.model.*;
 import org.javatuples.Pair;
 import org.javatuples.Triplet;
@@ -20,7 +24,7 @@ public class PodNodeScheduler {
 
     }
 
-    static synchronized Optional<Pair<Pod, Node>> schedule(Pod podToSchedule, String str) {
+    public  static synchronized Optional<Pair<Pod, Node>> schedule(Pod podToSchedule, String str) {
         if (podToSchedule != null) {
             return schedule(podList, nodeList, podToSchedule);
         } else {
@@ -133,8 +137,7 @@ public class PodNodeScheduler {
 
 
             for (Pod pod : existingPods.getItems()) {
-
-                if (node.getMetadata().getName().equals(pod.getSpec().getNodeName())) {
+              if (node.getMetadata().getName().equals(pod.getSpec().getNodeName())) {
 
                     if (pod.getSpec().getContainers().get(0).getResources().getRequests() != null && pod.getSpec().getContainers().get(0).getResources().getRequests().get("cpu") != null) {
                         Quantity pod_cpu = pod.getSpec().getContainers().get(0).getResources().getRequests().get("cpu"); // hier CPU und memory raus ziehen, anschließend auf noch die Methode zum umrechnen der Einheiten benutzen.
@@ -216,7 +219,7 @@ public class PodNodeScheduler {
             System.out.println("Bind " + pod.getMetadata().getName() + " to " + node.getMetadata().getName());
             var bind = KubernetesClientSingleton.getKubernetesClient().bindings().create(b1);
             //  TaskDB.addSchedulingReportToDB(pod, node, score);
-            return new Pair<Pod, Node>(pod, node);
+            return new Pair<>(pod, node);
         } catch (Exception e) {
             e.printStackTrace();
             return null;

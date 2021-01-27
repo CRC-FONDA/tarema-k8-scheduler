@@ -1,19 +1,18 @@
-package tuberlin.dos.kubscheduler;
+package fonda.scheduler.distributedscheduler;
 
+import fonda.scheduler.controller.KubernetesClientSingleton;
+import fonda.scheduler.model.PodListWithIndex;
+import fonda.scheduler.model.PodWithAge;
 import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import junit.framework.TestCase;
 import org.junit.Assert;
-import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Optional;
 
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
 
 public class PodNodeSchedulerTest extends TestCase {
 
@@ -35,9 +34,9 @@ public class PodNodeSchedulerTest extends TestCase {
         KubernetesClient kubernetesClient = KubernetesClientSingleton.getKubernetesClient();//.bindings().create(b1)
 
         KubernetesClient clientMock = mock(KubernetesClient.class);
-      //  when(clientMock.getKubernetesClient().bindings().create(b1)(anyString())).thenReturn(false);
+        //  when(clientMock.getKubernetesClient().bindings().create(b1)(anyString())).thenReturn(false);
         PodNodeScheduler.scheduleQueue(PodNodeScheduler.podList, PodNodeScheduler.nodeList);
-     //   Assert.assertEquals(PodNodeScheduler.podList.getItems().size(), 2);
+        //   Assert.assertEquals(PodNodeScheduler.podList.getItems().size(), 2);
     }
 
     public void testGetStarvingPod() {

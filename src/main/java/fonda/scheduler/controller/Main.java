@@ -1,5 +1,6 @@
-package tuberlin.dos.kubscheduler;
+package fonda.scheduler.controller;
 
+import fonda.scheduler.labeller.CurrentPodNodeStatus;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 
