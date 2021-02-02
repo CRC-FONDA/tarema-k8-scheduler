@@ -18,7 +18,7 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>tuberlin.dos.kubscheduler.Main</mainClass>
+                  <mainClass>fonda.scheduler.controller.Main</mainClass>
                 </transformer>
               </transformers>
             </configuration>

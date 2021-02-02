@@ -1,4 +1,4 @@
-package tuberlin.dos.kubscheduler;
+package fonda.scheduler.model;
 
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodList;

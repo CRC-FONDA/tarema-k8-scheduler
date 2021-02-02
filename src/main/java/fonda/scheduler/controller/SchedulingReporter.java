@@ -1,4 +1,4 @@
-package tuberlin.dos.kubscheduler;
+package fonda.scheduler.controller;
 
 public class SchedulingReporter {
 
