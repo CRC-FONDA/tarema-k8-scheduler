@@ -2,9 +2,13 @@ package fonda.scheduler.model;
 
 import io.fabric8.kubernetes.api.model.Node;
 import io.fabric8.kubernetes.api.model.Quantity;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 
+@Getter
+@Setter
 public class NodeWithAlloc implements Comparable<NodeWithAlloc> {
 
     private String nodeName;
@@ -27,54 +31,6 @@ public class NodeWithAlloc implements Comparable<NodeWithAlloc> {
         this.free_ram = new BigDecimal(0);
         this.free_cpu = new BigDecimal(0);
 
-    }
-
-    public BigDecimal getCurrent_cpu_usage() {
-        return current_cpu_usage;
-    }
-
-    public void setCurrent_cpu_usage(BigDecimal current_cpu_usage) {
-        this.current_cpu_usage = current_cpu_usage;
-    }
-
-    public BigDecimal getCurrent_ram_usage() {
-        return current_ram_usage;
-    }
-
-    public void setCurrent_ram_usage(BigDecimal current_ram_usage) {
-        this.current_ram_usage = current_ram_usage;
-    }
-
-    public Node getNode() {
-        return node;
-    }
-
-    public void setNode(Node node) {
-        this.node = node;
-    }
-
-    public String getNodeName() {
-        return nodeName;
-    }
-
-    public void setNodeName(String nodeName) {
-        this.nodeName = nodeName;
-    }
-
-    public BigDecimal getFree_cpu() {
-        return free_cpu;
-    }
-
-    public void setFree_cpu(BigDecimal free_cpu) {
-        this.free_cpu = free_cpu;
-    }
-
-    public BigDecimal getFree_ram() {
-        return free_ram;
-    }
-
-    public void setFree_ram(BigDecimal free_ram) {
-        this.free_ram = free_ram;
     }
 
     public void calculateAlloc() {

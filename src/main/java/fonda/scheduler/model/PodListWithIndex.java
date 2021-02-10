@@ -12,12 +12,10 @@ public class PodListWithIndex extends PodList {
 
     private Map<String, Pod> nameIndexMap = new HashMap<>(); // Welche Map ist hier am effizientesten
 
-    public PodListWithIndex() {
-
-    }
+    public PodListWithIndex() {}
 
     public PodListWithIndex(List<Pod> pods) {
-        pods.forEach(pod -> nameIndexMap.put(pod.getMetadata().getName(), pod));
+        pods.forEach( pod -> addPodToList(pod) );
     }
 
     /**

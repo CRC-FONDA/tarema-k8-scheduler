@@ -1,6 +1,5 @@
-package fonda.scheduler.labeller;
+package fonda.scheduler.distributedscheduler;
 
-import fonda.scheduler.distributedscheduler.PodNodeScheduler;
 import fonda.scheduler.model.PodListWithIndex;
 import fonda.scheduler.model.PodWithAge;
 import io.fabric8.kubernetes.api.model.ListOptions;
@@ -16,21 +15,27 @@ import io.fabric8.kubernetes.client.informers.ListerWatcher;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedInformerEventListener;
 import io.fabric8.kubernetes.client.informers.impl.DefaultSharedIndexInformer;
-import org.javatuples.Pair;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class CurrentPodNodeStatus {
+@Slf4j
+public abstract class Scheduler {
 
     DefaultSharedIndexInformer<Node, NodeList> defaultSharedIndexInformerNode;
-    private KubernetesClient client;
+    final KubernetesClient client;
     private OperationContext operationContext;
     private ConcurrentLinkedQueue<SharedInformerEventListener> workerQueueNode;
+    PodListWithIndex podList = new PodListWithIndex();
+    @Getter
+    private final String name;
 
-    public CurrentPodNodeStatus(KubernetesClient client) {
+    Scheduler( String name, KubernetesClient client ){
+        this.name = name;
         this.client = client;
-
-        PodNodeScheduler.podList = new PodListWithIndex();
 
         this.workerQueueNode = new ConcurrentLinkedQueue<>();
 
@@ -47,28 +52,28 @@ public class CurrentPodNodeStatus {
 
         // setUpIndexInformerPod();
 
-        ListOptions options = new ListOptions();
-        options.setFieldSelector("spec.schedulerName=new-scheduler");
+        //ListOptions options = new ListOptions();
+        //options.setFieldSelector("spec.schedulerName=new-scheduler");
 
         client.pods().watch(new Watcher<>() {
             @Override
             public void eventReceived(Action action, Pod pod) {
-
                 PodWithAge pwa = new PodWithAge(pod);
+                log.info("Got pod: " + pod);
+                log.info("Scheduler: " + pwa.getSpec().getSchedulerName());
+                if ( ! name.equals( pwa.getSpec().getSchedulerName() ) )  return;
                 switch (action) {
                     case ADDED:
-                        PodNodeScheduler.podList.addPodToList(pwa);
+                        addPod(pwa);
                         if (pwa.getSpec().getNodeName() == null) {
-                            Pair<Pod, Node> scheduledPair = PodNodeScheduler.schedule(pwa, "").orElse(new Pair<>(pwa, null));
-                            pwa.getSpec().setNodeName(scheduledPair.getValue1().getMetadata().getName()); // Hier stimmt evtl etwas nicht
-                            PodNodeScheduler.podList.addPodToList(pwa);
+                            schedule( pwa );
                         }
                         break;
                     case MODIFIED:
                         break;
                     case DELETED:
-                        PodNodeScheduler.podList.removePodFromList(pwa); //klappt das?
-                        PodNodeScheduler.schedule(null, "");
+                        removePod(pwa); //klappt das?
+                        schedule(null );
                 }
 
                 //  System.out.println("Currently unscheduled pods: ");
@@ -81,8 +86,6 @@ public class CurrentPodNodeStatus {
 
             }
         });
-
-
     }
 
     /**
@@ -107,8 +110,7 @@ public class CurrentPodNodeStatus {
 
             @Override
             public Object list(ListOptions params, String namespace, OperationContext context) {
-                PodNodeScheduler.nodeList = client.nodes().list();
-                return PodNodeScheduler.nodeList;
+                return getNodeList();
             }
         };
 
@@ -137,5 +139,24 @@ public class CurrentPodNodeStatus {
             }
         });
     }
+
+    void assignPodToNode( Pod pod, Node node ){
+        pod.getSpec().setNodeName( node.getMetadata().getName() ); // Hier stimmt evtl etwas nicht
+    }
+
+
+    public void addPod( Pod pod ) {
+        podList.addPodToList( pod );
+    }
+
+    public void removePod( Pod pod ) {
+        podList.removePodFromList( pod );
+    }
+
+    NodeList getNodeList(){
+        return client.nodes().list();
+    }
+
+    public abstract void schedule( Pod podToSchedule );
 
 }

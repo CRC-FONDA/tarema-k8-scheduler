@@ -1,6 +1,5 @@
 package fonda.scheduler.distributedscheduler;
 
-import fonda.scheduler.controller.KubernetesClientSingleton;
 import fonda.scheduler.model.PodListWithIndex;
 import fonda.scheduler.model.PodWithAge;
 import io.fabric8.kubernetes.api.model.*;

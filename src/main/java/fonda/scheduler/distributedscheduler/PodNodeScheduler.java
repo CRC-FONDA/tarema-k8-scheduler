@@ -1,10 +1,9 @@
 package fonda.scheduler.distributedscheduler;
 
-import fonda.scheduler.controller.KubernetesClientSingleton;
 import fonda.scheduler.model.NodeWithAlloc;
-import fonda.scheduler.model.PodListWithIndex;
 import fonda.scheduler.model.PodWithAge;
 import io.fabric8.kubernetes.api.model.*;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import org.javatuples.Pair;
 import org.javatuples.Triplet;
 
@@ -14,27 +13,28 @@ import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class PodNodeScheduler {
+public class PodNodeScheduler extends Scheduler {
 
-    public static NodeList nodeList;
-    public static PodListWithIndex podList;
-    public static PodList unscheduledPods = new PodList();
+    private PodList unscheduledPods = new PodList();
 
-    private PodNodeScheduler() {
-
+    public PodNodeScheduler(String name, KubernetesClient client) {
+        super(name, client);
     }
 
-    public  static synchronized Optional<Pair<Pod, Node>> schedule(Pod podToSchedule, String str) {
+    public synchronized void schedule(Pod podToSchedule) {
         if (podToSchedule != null) {
-            return schedule(podList, nodeList, podToSchedule);
+            Pair<Pod, Node> scheduledPair = schedule(podList, getNodeList(), podToSchedule).get();
+            if( scheduledPair != null ){
+                assignPodToNode( podToSchedule, scheduledPair.getValue1() );
+                addPod(podToSchedule);
+            }
         } else {
-            scheduleQueue(podList, nodeList);
-            return Optional.empty();
+            scheduleQueue(podList, getNodeList());
         }
     }
 
 
-    static Optional<Pair<Pod, Node>> schedule(PodList existingPods, NodeList existingNodes, Pod podToSchedule) {
+    Optional<Pair<Pod, Node>> schedule(PodList existingPods, NodeList existingNodes, Pod podToSchedule) {
 
         List<NodeWithAlloc> nodesWithAllocList = estimateFreeNodeCapabilities(existingPods, existingNodes);
 
@@ -54,7 +54,7 @@ public class PodNodeScheduler {
 
     }
 
-    static void scheduleQueue(PodList existingPods, NodeList existingNodes) {
+    void scheduleQueue(PodList existingPods, NodeList existingNodes) {
 
         if (unscheduledPods.getItems().isEmpty()) {
             return;
@@ -88,14 +88,14 @@ public class PodNodeScheduler {
 
                 Pod podToAdd = pair.getValue0();
                 podToAdd.getSpec().setNodeName(pair.getValue1().getMetadata().getName());
-                PodNodeScheduler.podList.addPodToList(podToAdd);
+                podList.addPodToList(podToAdd);
             }
 
         }
 
     }
 
-    public static Optional<Pod> getStarvingPod() {
+    public Optional<Pod> getStarvingPod() {
         BigDecimal maxAge = BigDecimal.ZERO;
         Pod oldestPod = unscheduledPods.getItems().get(0);
         BigDecimal averageAge = BigDecimal.ZERO;
@@ -125,7 +125,7 @@ public class PodNodeScheduler {
         return Optional.empty();
     }
 
-    static List<NodeWithAlloc> estimateFreeNodeCapabilities(PodList existingPods, NodeList existingNodes) {
+    List<NodeWithAlloc> estimateFreeNodeCapabilities(PodList existingPods, NodeList existingNodes) {
         TreeMap<NodeWithAlloc, Integer> nodeScore = new TreeMap<>();
 
         List<NodeWithAlloc> nodeWithAllocList = new ArrayList<>();
@@ -160,7 +160,7 @@ public class PodNodeScheduler {
         return nodeWithAllocList;
     }
 
-    static TreeMap<NodeWithAlloc, Integer> calculateNodeScore(List<NodeWithAlloc> nodesWithAllocList, Pod podToSchedule) {
+    TreeMap<NodeWithAlloc, Integer> calculateNodeScore(List<NodeWithAlloc> nodesWithAllocList, Pod podToSchedule) {
 
         TreeMap<NodeWithAlloc, Integer> nodeScore = new TreeMap<>();
 
@@ -200,7 +200,7 @@ public class PodNodeScheduler {
 
     }
 
-    static Pair<Pod, Node> bindPodToNode(Pod pod, Node node, Integer score) {
+    Pair<Pod, Node> bindPodToNode(Pod pod, Node node, Integer score) {
         Binding b1 = new Binding();
 
         ObjectMeta om = new ObjectMeta();
@@ -217,7 +217,7 @@ public class PodNodeScheduler {
 
         try {
             System.out.println("Bind " + pod.getMetadata().getName() + " to " + node.getMetadata().getName());
-            var bind = KubernetesClientSingleton.getKubernetesClient().bindings().create(b1);
+            var bind = client.bindings().create(b1);
             //  TaskDB.addSchedulingReportToDB(pod, node, score);
             return new Pair<>(pod, node);
         } catch (Exception e) {
