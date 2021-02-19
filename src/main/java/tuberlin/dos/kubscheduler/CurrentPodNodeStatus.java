@@ -12,6 +12,7 @@ import io.fabric8.kubernetes.client.informers.SharedInformerEventListener;
 import io.fabric8.kubernetes.client.informers.impl.DefaultSharedIndexInformer;
 import org.javatuples.Pair;
 
+import java.util.Collections;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class CurrentPodNodeStatus {
@@ -55,17 +56,23 @@ public class CurrentPodNodeStatus {
                 switch (action) {
                     case ADDED:
                         PodNodeScheduler.podList.addPodToList(pod);
+
+                        if(PodNodeScheduler.unscheduledPods.getItems().size()>0) {
+                            PodNodeScheduler.unscheduledPods.getItems().add(pod);
+                            break;
+                        }
+
                         if (pod.getSpec().getNodeName() == null) {
-                            Pair<Pod, Node> scheduledPair = PodNodeScheduler.schedule(pod, "").orElse(new Pair<>(pod, null));
-                            pod.getSpec().setNodeName(scheduledPair.getValue1().getMetadata().getName()); // Hier stimmt evtl etwas nicht
+                            Pair<Pod, Node> scheduledPair = PodNodeScheduler.scheduleRR(pod, "").orElse(new Pair<>(pod, null)); // change scheduling approach here
+                            pod.getSpec().setNodeName(scheduledPair.getValue1().getMetadata().getName());
                             PodNodeScheduler.podList.addPodToList(pod);
                         }
                         break;
                     case MODIFIED:
                         break;
                     case DELETED:
-                        PodNodeScheduler.podList.removePodFromList(pod); //klappt das?
-                        PodNodeScheduler.schedule( null, "");
+                        PodNodeScheduler.podList.removePodFromList(pod);
+                        PodNodeScheduler.scheduleRR( null, "");
                 }
 
             }
@@ -102,11 +109,12 @@ public class CurrentPodNodeStatus {
             @Override
             public Object list(ListOptions params, String namespace, OperationContext context) {
                 PodNodeScheduler.nodeList = client.nodes().list();
+                Collections.shuffle(PodNodeScheduler.nodeList.getItems()); // use this for scheduling experiments
                 return PodNodeScheduler.nodeList;
             }
         };
 
-        defaultSharedIndexInformerNode = new DefaultSharedIndexInformer(Node.class, listerWatcher, 600000, operationContext, workerQueueNode);
+        defaultSharedIndexInformerNode = new DefaultSharedIndexInformer(Node.class, listerWatcher, 24000, operationContext, workerQueueNode);
 
         try {
             defaultSharedIndexInformerNode.run();

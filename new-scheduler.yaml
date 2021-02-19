@@ -58,7 +58,7 @@ spec:
             - --address=0.0.0.0
             - --leader-elect=false
             - --scheduler-name=new-scheduler
-          image: was1Docker/new-scheduler:1
+          image: was1docker/new-scheduler:2
           livenessProbe:
             httpGet:
               path: /healthz

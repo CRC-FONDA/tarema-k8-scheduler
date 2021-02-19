@@ -65,6 +65,14 @@ public class NodeWithAlloc implements Comparable<NodeWithAlloc> {
         return free_cpu;
     }
 
+    public Double getFree_cpu_as_Double() {
+        return this.free_cpu.doubleValue();
+    }
+
+    public Double getCurrent_cpu_as_Double() {
+        return this.current_cpu_usage.doubleValue();
+    }
+
     public void setFree_cpu(BigDecimal free_cpu) {
         this.free_cpu = free_cpu;
     }
