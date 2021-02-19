@@ -1,5 +1,7 @@
-package tuberlin.dos.kubscheduler;
+package fonda.scheduler.labeller;
 
+import fonda.scheduler.distributedscheduler.PodNodeScheduler;
+import fonda.scheduler.model.PodListWithIndex;
 import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.Watch;

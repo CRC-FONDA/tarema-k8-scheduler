@@ -1,5 +1,8 @@
-package tuberlin.dos.kubscheduler;
+package fonda.scheduler.distributedscheduler;
 
+import fonda.scheduler.controller.KubernetesClientSingleton;
+import fonda.scheduler.model.NodeWithAlloc;
+import fonda.scheduler.model.PodListWithIndex;
 import io.fabric8.kubernetes.api.model.*;
 import org.javatuples.Pair;
 import org.javatuples.Triplet;
@@ -31,7 +34,7 @@ public class PodNodeScheduler {
         }
     }
 
-    static synchronized Optional<Pair<Pod, Node>> scheduleRR(Pod podToSchedule, String str) {
+    public static synchronized Optional<Pair<Pod, Node>> scheduleRR(Pod podToSchedule, String str) {
         if (podToSchedule != null) {
             return scheduleRR(podList, nodeList, podToSchedule, 0);
         } else {
