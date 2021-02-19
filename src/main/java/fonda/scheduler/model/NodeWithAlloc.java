@@ -1,4 +1,4 @@
-package tuberlin.dos.kubscheduler;
+package fonda.scheduler.model;
 
 import io.fabric8.kubernetes.api.model.Node;
 import io.fabric8.kubernetes.api.model.Quantity;

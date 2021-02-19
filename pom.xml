@@ -41,6 +41,25 @@
             <version>3.4.5</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.4</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.11</version> <!-- Or whatever JUnit you're using. -->
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-inline</artifactId>
+            <version>3.4.4</version>
+            <scope>test</scope>
+        </dependency>
+
 
     </dependencies>
 
@@ -61,7 +80,7 @@
                             <transformers>
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>tuberlin.dos.kubscheduler.Main</mainClass>
+                                    <mainClass>fonda.scheduler.controller.Main</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
