@@ -2,14 +2,12 @@ package fonda.scheduler.distributedscheduler;
 
 import fonda.scheduler.model.PodListWithIndex;
 import fonda.scheduler.model.PodWithAge;
-import io.fabric8.kubernetes.api.model.ListOptions;
-import io.fabric8.kubernetes.api.model.Node;
-import io.fabric8.kubernetes.api.model.NodeList;
-import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.Watch;
 import io.fabric8.kubernetes.client.Watcher;
 import io.fabric8.kubernetes.client.WatcherException;
+import io.fabric8.kubernetes.client.dsl.PodResource;
 import io.fabric8.kubernetes.client.dsl.base.OperationContext;
 import io.fabric8.kubernetes.client.informers.ListerWatcher;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
@@ -17,8 +15,6 @@ import io.fabric8.kubernetes.client.informers.SharedInformerEventListener;
 import io.fabric8.kubernetes.client.informers.impl.DefaultSharedIndexInformer;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -58,10 +54,25 @@ public abstract class Scheduler {
         client.pods().watch(new Watcher<>() {
             @Override
             public void eventReceived(Action action, Pod pod) {
+
+                podEventReceived( action, pod );
+
+                if ( ! name.equals( pod.getSpec().getSchedulerName() ) )  return;
+
                 PodWithAge pwa = new PodWithAge(pod);
-                log.info("Got pod: " + pod);
-                log.info("Scheduler: " + pwa.getSpec().getSchedulerName());
-                if ( ! name.equals( pwa.getSpec().getSchedulerName() ) )  return;
+                if( pod.getMetadata().getLabels() != null ){
+                    log.info("Got pod: " + pod.getMetadata().getName() +
+                            " app: " + pod.getMetadata().getLabels().getOrDefault("app", "-" ) +
+                            " processName: " + pod.getMetadata().getLabels().getOrDefault("processName", "-" ) +
+                            " runName: " + pod.getMetadata().getLabels().getOrDefault("runName", "-" ) +
+                            " taskName: " + pod.getMetadata().getLabels().getOrDefault("taskName", "-" ) +
+                            " scheduler: " + pwa.getSpec().getSchedulerName() +
+                            " action: " + action
+                    );
+                } else {
+                    log.info("Got pod " + pod.getMetadata().getName() + " scheduler: " + pwa.getSpec().getSchedulerName() );
+                }
+
                 switch (action) {
                     case ADDED:
                         addPod(pwa);
@@ -70,6 +81,9 @@ public abstract class Scheduler {
                         }
                         break;
                     case MODIFIED:
+                        if( pod.getStatus().getContainerStatuses().size() > 0 && pod.getStatus().getContainerStatuses().get(0).getState().getTerminated() != null ){
+                            onPodTermination( pwa );
+                        }
                         break;
                     case DELETED:
                         removePod(pwa); //klappt das?
@@ -87,6 +101,10 @@ public abstract class Scheduler {
             }
         });
     }
+
+    void podEventReceived(Watcher.Action action, Pod pod){}
+
+    void onPodTermination( Pod pod ){}
 
     /**
      *
@@ -141,7 +159,33 @@ public abstract class Scheduler {
     }
 
     void assignPodToNode( Pod pod, Node node ){
+        log.info ( "Assign pod: " + pod.getMetadata().getName() + " to node: " + node );
+
+        Binding b1 = new Binding();
+
+        ObjectMeta om = new ObjectMeta();
+        om.setName(pod.getMetadata().getName());
+        om.setNamespace(pod.getMetadata().getNamespace());
+        b1.setMetadata(om);
+
+        ObjectReference objectReference = new ObjectReference();
+        objectReference.setApiVersion("v1");
+        objectReference.setKind("Node");
+        objectReference.setName(node.getMetadata().getName()); //hier ersetzen durch tatsächliche Node
+
+        b1.setTarget(objectReference);
+
+        client.bindings().create(b1);
+
         pod.getSpec().setNodeName( node.getMetadata().getName() ); // Hier stimmt evtl etwas nicht
+        log.info ( "Assigned pod to:" + pod.getSpec().getNodeName());
+    }
+
+    /**
+     * Close used resources
+     */
+    public void close(){
+
     }
 
 
@@ -158,5 +202,13 @@ public abstract class Scheduler {
     }
 
     public abstract void schedule( Pod podToSchedule );
+
+    String getWorkingDir( Pod pod ){
+        return pod.getSpec().getContainers().get(0).getWorkingDir();
+    }
+
+    PodResource<Pod> findPodByName(String name ){
+        return client.pods().withName( name );
+    }
 
 }

@@ -1,6 +1,6 @@
 package fonda.scheduler;
 
-import fonda.scheduler.distributedscheduler.PodNodeScheduler;
+import fonda.scheduler.distributedscheduler.TaremaScheduler;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +27,6 @@ public class Main {
 
     @PostConstruct
     public void afterStart(){
-        final PodNodeScheduler podNodeScheduler = new PodNodeScheduler("new-scheduler", client);
+        final TaremaScheduler podNodeScheduler = new TaremaScheduler("new-scheduler", client);
     }
 }

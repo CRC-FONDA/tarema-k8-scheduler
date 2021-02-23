@@ -13,28 +13,27 @@ import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class PodNodeScheduler extends Scheduler {
+public class TaremaScheduler extends Scheduler {
 
     private PodList unscheduledPods = new PodList();
 
-    public PodNodeScheduler(String name, KubernetesClient client) {
+    public TaremaScheduler(String name, KubernetesClient client) {
         super(name, client);
     }
 
     public synchronized void schedule(Pod podToSchedule) {
         if (podToSchedule != null) {
-            Pair<Pod, Node> scheduledPair = schedule(podList, getNodeList(), podToSchedule).get();
-            if( scheduledPair != null ){
-                assignPodToNode( podToSchedule, scheduledPair.getValue1() );
+            if (schedule(podList, getNodeList(), podToSchedule)){
                 addPod(podToSchedule);
             }
+
         } else {
             scheduleQueue(podList, getNodeList());
         }
     }
 
 
-    Optional<Pair<Pod, Node>> schedule(PodList existingPods, NodeList existingNodes, Pod podToSchedule) {
+    boolean schedule(PodList existingPods, NodeList existingNodes, Pod podToSchedule) {
 
         List<NodeWithAlloc> nodesWithAllocList = estimateFreeNodeCapabilities(existingPods, existingNodes);
 
@@ -43,12 +42,15 @@ public class PodNodeScheduler extends Scheduler {
         if (nodeScore.isEmpty()) {
             System.out.println("Pod " + podToSchedule.getMetadata().getName() + " was unable to get scheduled due to insufficient resources. Added to unscheduled queue");
             unscheduledPods.getItems().add(podToSchedule);
-            return Optional.empty();
+            //return Optional.empty();
+            return false;
         } else {
             NodeWithAlloc maxNode = Collections.max(nodeScore.entrySet(), Comparator.comparingInt(Map.Entry::getValue)).getKey();
             //raise everyone else's age
             unscheduledPods.getItems().forEach(podWithAge -> ((PodWithAge) podWithAge).setAge(((PodWithAge) podWithAge).getAge().add(BigDecimal.ONE)));
-            return Optional.of(bindPodToNode(podToSchedule, maxNode.getNode(), nodeScore.get(maxNode)));
+            assignPodToNode(podToSchedule, maxNode.getNode());
+            //return Optional.of(bindPodToNode(podToSchedule, maxNode.getNode(), nodeScore.get(maxNode)));
+            return true;
 
         }
 
@@ -81,13 +83,14 @@ public class PodNodeScheduler extends Scheduler {
             });
 
             if (nodePodWithHighestScore.get().getValue2() > -1) {
-                Pair<Pod, Node> pair = bindPodToNode(nodePodWithHighestScore.get().getValue0(), nodePodWithHighestScore.get().getValue1(), nodePodWithHighestScore.get().getValue2());
+                //Pair<Pod, Node> pair = bindPodToNode(nodePodWithHighestScore.get().getValue0(), nodePodWithHighestScore.get().getValue1(), nodePodWithHighestScore.get().getValue2());
+                assignPodToNode(nodePodWithHighestScore.get().getValue0(), nodePodWithHighestScore.get().getValue1());
                 unscheduledPods.getItems().remove(nodePodWithHighestScore.get().getValue0());
                 //raise everyone else's age
                 unscheduledPods.getItems().forEach(podWithAge -> ((PodWithAge) podWithAge).setAge(((PodWithAge) podWithAge).getAge().add(BigDecimal.ONE)));
 
-                Pod podToAdd = pair.getValue0();
-                podToAdd.getSpec().setNodeName(pair.getValue1().getMetadata().getName());
+                Pod podToAdd = nodePodWithHighestScore.get().getValue0();
+                podToAdd.getSpec().setNodeName(nodePodWithHighestScore.get().getValue1().getMetadata().getName());
                 podList.addPodToList(podToAdd);
             }
 
@@ -200,33 +203,33 @@ public class PodNodeScheduler extends Scheduler {
 
     }
 
-    Pair<Pod, Node> bindPodToNode(Pod pod, Node node, Integer score) {
-        Binding b1 = new Binding();
-
-        ObjectMeta om = new ObjectMeta();
-        om.setName(pod.getMetadata().getName());
-        om.setNamespace(pod.getMetadata().getNamespace());
-        b1.setMetadata(om);
-
-        ObjectReference objectReference = new ObjectReference();
-        objectReference.setApiVersion("v1");
-        objectReference.setKind("Node");
-        objectReference.setName(node.getMetadata().getName()); //hier ersetzen durch tatsächliche Node
-
-        b1.setTarget(objectReference);
-
-        try {
-            System.out.println("Bind " + pod.getMetadata().getName() + " to " + node.getMetadata().getName());
-            var bind = client.bindings().create(b1);
-            //  TaskDB.addSchedulingReportToDB(pod, node, score);
-            return new Pair<>(pod, node);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-
-
-    }
+//    Pair<Pod, Node> bindPodToNode(Pod pod, Node node, Integer score) {
+//        Binding b1 = new Binding();
+//
+//        ObjectMeta om = new ObjectMeta();
+//        om.setName(pod.getMetadata().getName());
+//        om.setNamespace(pod.getMetadata().getNamespace());
+//        b1.setMetadata(om);
+//
+//        ObjectReference objectReference = new ObjectReference();
+//        objectReference.setApiVersion("v1");
+//        objectReference.setKind("Node");
+//        objectReference.setName(node.getMetadata().getName()); //hier ersetzen durch tatsächliche Node
+//
+//        b1.setTarget(objectReference);
+//
+//        try {
+//            System.out.println("Bind " + pod.getMetadata().getName() + " to " + node.getMetadata().getName());
+//            var bind = client.bindings().create(b1);
+//            //  TaskDB.addSchedulingReportToDB(pod, node, score);
+//            return new Pair<>(pod, node);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return null;
+//        }
+//
+//
+//    }
 
 
 }
