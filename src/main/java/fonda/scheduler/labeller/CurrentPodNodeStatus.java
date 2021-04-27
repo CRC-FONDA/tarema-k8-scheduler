@@ -13,6 +13,8 @@ import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedInformerEventListener;
 import io.fabric8.kubernetes.client.informers.impl.DefaultSharedIndexInformer;
 import org.javatuples.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -26,6 +28,8 @@ public class CurrentPodNodeStatus {
     private ConcurrentLinkedQueue<SharedInformerEventListener> workerQueueNode;
 
     DefaultSharedIndexInformer<Node, NodeList> defaultSharedIndexInformerNode;
+
+    private static final Logger logger = LoggerFactory.getLogger(CurrentPodNodeStatus.class);
 
     public CurrentPodNodeStatus(KubernetesClient client) {
         this.client = client;
@@ -50,13 +54,14 @@ public class CurrentPodNodeStatus {
         ListOptions options = new ListOptions();
         options.setFieldSelector("spec.schedulerName=new-scheduler");
 
-        client.pods().watch(new Watcher<Pod>() {
+        client.pods().watch(options, new Watcher<Pod>() {
             @Override
             public void eventReceived(Action action, Pod pod) {
 
 
                 switch (action) {
                     case ADDED:
+                        logger.info("["+ pod.getSpec().getContainers().get(0).getName() + "] - "+"New Pod added to Scheduler: "+ pod.getMetadata().getName());
                         PodNodeScheduler.podList.addPodToList(pod);
 
                         if(PodNodeScheduler.unscheduledPods.getItems().size()>0) {
@@ -66,13 +71,18 @@ public class CurrentPodNodeStatus {
 
                         if (pod.getSpec().getNodeName() == null) {
                             Pair<Pod, Node> scheduledPair = PodNodeScheduler.scheduleRR(pod, "").orElse(new Pair<>(pod, null)); // change scheduling approach here
-                            pod.getSpec().setNodeName(scheduledPair.getValue1().getMetadata().getName());
+                            if(scheduledPair.getValue1() == null) {
+                                pod.getSpec().setNodeName(null);
+                            } else {
+                                pod.getSpec().setNodeName(scheduledPair.getValue1().getMetadata().getName());
+                            }
                             PodNodeScheduler.podList.addPodToList(pod);
                         }
                         break;
                     case MODIFIED:
                         break;
                     case DELETED:
+                        logger.info("["+ pod.getSpec().getContainers().get(0).getName() + "] - "+ "Pod deleted: " + pod.getMetadata().getName());
                         PodNodeScheduler.podList.removePodFromList(pod);
                         PodNodeScheduler.scheduleRR( null, "");
                 }

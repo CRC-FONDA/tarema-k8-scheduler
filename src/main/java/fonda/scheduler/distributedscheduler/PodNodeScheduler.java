@@ -6,9 +6,13 @@ import fonda.scheduler.model.PodListWithIndex;
 import io.fabric8.kubernetes.api.model.*;
 import org.javatuples.Pair;
 import org.javatuples.Triplet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
+
 
 public class PodNodeScheduler {
 
@@ -20,15 +24,17 @@ public class PodNodeScheduler {
 
     private static int nodeIndex = 0;
 
+    private static final Logger logger = LoggerFactory.getLogger(PodNodeScheduler.class);
+
     private PodNodeScheduler() {
 
     }
 
-    static synchronized Optional<Pair<Pod, Node>> schedule(Pod podToSchedule, String str) {
+    public static synchronized Optional<Pair<Pod, Node>> schedule(Pod podToSchedule, String str) {
         if (podToSchedule != null) {
             return schedule(podList, nodeList, podToSchedule);
         } else {
-            System.out.println("schedule Queue with size: " + unscheduledPods.getItems().size());
+            logger.info("Schedule Queue with " + unscheduledPods.getItems().size() + " elements.");
             scheduleQueue(podList, nodeList);
             return Optional.empty();
         }
@@ -36,9 +42,11 @@ public class PodNodeScheduler {
 
     public static synchronized Optional<Pair<Pod, Node>> scheduleRR(Pod podToSchedule, String str) {
         if (podToSchedule != null) {
+            // logger.info(podToSchedule.getSpec().getContainers().get(0).getName() + " - " +"Schedule pod " + unscheduledPods.getItems().size() + " elements.");
             return scheduleRR(podList, nodeList, podToSchedule, 0);
         } else {
-            scheduleQueueFIFO(podList, nodeList);
+            logger.info("Schedule Queue with " + unscheduledPods.getItems().size() + " elements.");
+            scheduleQueue(podList, nodeList);
             return Optional.empty();
         }
     }
@@ -51,7 +59,7 @@ public class PodNodeScheduler {
         TreeMap<NodeWithAlloc, Double> nodeScore = calculateNodeScore(nodesWithAllocList, podToSchedule);
 
         if (nodeScore.isEmpty()) {
-            System.out.println("Pod " + podToSchedule.getMetadata().getLabels().get("taskName") + " was unable to get scheduled due to insufficient resources. Added to unscheduled queue");
+            logger.info(podToSchedule.getSpec().getContainers().get(0).getName() + " - " + "Pod " + getFullPodName(podToSchedule) + " was unable to get scheduled due to insufficient resources. Added to unscheduled queue.");
             unscheduledPods.getItems().add(podToSchedule);
             return Optional.empty();
         } else {
@@ -134,8 +142,8 @@ public class PodNodeScheduler {
             }
         });
 
-        if (nodePodWithHighestScore.get().getValue2() < 10.0) {
-            System.out.println("Finally schedule Queue with the queue: ");
+        if (nodePodWithHighestScore.get().getValue2() < 100.0) {
+            logger.info("[" + nodePodWithHighestScore.get().getValue0().getSpec().getContainers().get(0).getName() + "] - " + "Schedule pod " + getFullPodName(nodePodWithHighestScore.get().getValue0()) + " to " + nodePodWithHighestScore.get().getValue1().getMetadata().getName() + " from queue.");
             Pair<Pod, Node> pair = bindPodToNode(nodePodWithHighestScore.get().getValue0(), nodePodWithHighestScore.get().getValue1(), nodePodWithHighestScore.get().getValue2());
             unscheduledPods.getItems().remove(nodePodWithHighestScore.get().getValue0());
             Pod podToAdd = pair.getValue0();
@@ -153,7 +161,7 @@ public class PodNodeScheduler {
 
         List<NodeWithAlloc> nodesWithAllocList = estimateFreeNodeCapabilities(existingPods, existingNodes);
 
-        AtomicReference<Triplet<Pod, Node, Double>> nodePodWithHighestScore = new AtomicReference<>(new Triplet<>(null, null, 10.0));
+        AtomicReference<Triplet<Pod, Node, Double>> nodePodWithHighestScore = new AtomicReference<>(new Triplet<>(null, null, 100.0));
 
         unscheduledPods.getItems().forEach(pod -> {
 
@@ -273,7 +281,7 @@ public class PodNodeScheduler {
                     });
                     // Für den Fall das keine Labels matchen aber die Node frei ist. Der score ist dann 0
                     if (!nodeScore.containsKey(node)) {
-                        nodeScore.put(node, 10.0);
+                        nodeScore.put(node, 3.0);
                     }
 
                 });
@@ -282,6 +290,10 @@ public class PodNodeScheduler {
         });
         return nodeScore;
 
+    }
+
+    private static String getFullPodName(Pod pod) {
+        return pod.getMetadata().getLabels().get("taskName");
     }
 
     private static Double getWeight(String str) {
@@ -305,14 +317,13 @@ public class PodNodeScheduler {
         ObjectReference objectReference = new ObjectReference();
         objectReference.setApiVersion("v1");
         objectReference.setKind("Node");
-        objectReference.setName(node.getMetadata().getName()); //hier ersetzen durch tatsächliche Node
+        objectReference.setName(node.getMetadata().getName());
 
         b1.setTarget(objectReference);
 
         try {
-            System.out.println("Bind " + pod.getMetadata().getLabels().get("taskName") + " to" + node.getMetadata().getName() + " with score: " + score);
+            logger.info("[" + pod.getSpec().getContainers().get(0).getName() + "] - " + "Bind " + getFullPodName(pod) + " to " + node.getMetadata().getName() + " with score: " + score);
             var bind = KubernetesClientSingleton.getKubernetesClient().bindings().create(b1);
-            //  TaskDB.addSchedulingReportToDB(pod, node, score);
             return new Pair<Pod, Node>(pod, node);
         } catch (Exception e) {
             e.printStackTrace();
