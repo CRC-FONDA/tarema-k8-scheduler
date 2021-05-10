@@ -1,8 +1,11 @@
 package fonda.scheduler.labeller;
 
-import fonda.scheduler.distributedscheduler.PodNodeScheduler;
+import fonda.scheduler.distributedscheduler.SJFNScheduler;
 import fonda.scheduler.model.PodListWithIndex;
-import io.fabric8.kubernetes.api.model.*;
+import io.fabric8.kubernetes.api.model.ListOptions;
+import io.fabric8.kubernetes.api.model.Node;
+import io.fabric8.kubernetes.api.model.NodeList;
+import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.Watch;
 import io.fabric8.kubernetes.client.Watcher;
@@ -34,7 +37,7 @@ public class CurrentPodNodeStatus {
     public CurrentPodNodeStatus(KubernetesClient client) {
         this.client = client;
 
-        PodNodeScheduler.podList = new PodListWithIndex();
+        SJFNScheduler.podList = new PodListWithIndex();
 
         this.workerQueueNode = new ConcurrentLinkedQueue<>();
 
@@ -62,29 +65,29 @@ public class CurrentPodNodeStatus {
                 switch (action) {
                     case ADDED:
                         logger.info("["+ pod.getSpec().getContainers().get(0).getName() + "] - "+"New Pod added to Scheduler: "+ pod.getMetadata().getName());
-                        PodNodeScheduler.podList.addPodToList(pod);
+                        SJFNScheduler.podList.addPodToList(pod);
 
-                        if(PodNodeScheduler.unscheduledPods.getItems().size()>0) {
-                            PodNodeScheduler.unscheduledPods.getItems().add(pod);
+                        if(SJFNScheduler.unscheduledPods.getItems().size()>0) {
+                            SJFNScheduler.unscheduledPods.getItems().add(pod);
                             break;
                         }
 
                         if (pod.getSpec().getNodeName() == null) {
-                            Pair<Pod, Node> scheduledPair = PodNodeScheduler.scheduleRR(pod, "").orElse(new Pair<>(pod, null)); // change scheduling approach here
+                            Pair<Pod, Node> scheduledPair = SJFNScheduler.scheduleSJFN(pod).orElse(new Pair<>(pod, null)); // change scheduling approach here
                             if(scheduledPair.getValue1() == null) {
                                 pod.getSpec().setNodeName(null);
                             } else {
                                 pod.getSpec().setNodeName(scheduledPair.getValue1().getMetadata().getName());
                             }
-                            PodNodeScheduler.podList.addPodToList(pod);
+                            SJFNScheduler.podList.addPodToList(pod);
                         }
                         break;
                     case MODIFIED:
                         break;
                     case DELETED:
                         logger.info("["+ pod.getSpec().getContainers().get(0).getName() + "] - "+ "Pod deleted: " + pod.getMetadata().getName());
-                        PodNodeScheduler.podList.removePodFromList(pod);
-                        PodNodeScheduler.scheduleRR( null, "");
+                        SJFNScheduler.podList.removePodFromList(pod);
+                        SJFNScheduler.scheduleSJFN( null);
                 }
 
             }
@@ -120,9 +123,9 @@ public class CurrentPodNodeStatus {
 
             @Override
             public Object list(ListOptions params, String namespace, OperationContext context) {
-                PodNodeScheduler.nodeList = client.nodes().list();
-                Collections.shuffle(PodNodeScheduler.nodeList.getItems()); // use this for scheduling experiments
-                return PodNodeScheduler.nodeList;
+                SJFNScheduler.nodeList = client.nodes().list();
+                Collections.shuffle(SJFNScheduler.nodeList.getItems()); // use this for scheduling experiments
+                return SJFNScheduler.nodeList;
             }
         };
 
