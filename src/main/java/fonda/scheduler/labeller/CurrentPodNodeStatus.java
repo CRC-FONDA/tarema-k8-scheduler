@@ -64,17 +64,24 @@ public class CurrentPodNodeStatus {
 
                 switch (action) {
                     case ADDED:
-                        logger.info("["+ pod.getSpec().getContainers().get(0).getName() + "] - "+"New Pod added to Scheduler: "+ pod.getMetadata().getName());
+                        logger.info("[" + pod.getSpec().getContainers().get(0).getName() + "] - " + "New Pod added to Scheduler: " + pod.getMetadata().getName());
+
+                        pod.getSpec().getAffinity().getNodeAffinity().getPreferredDuringSchedulingIgnoredDuringExecution().forEach(preferredSchedulingTerm -> {
+                            if (preferredSchedulingTerm.getPreference().getMatchExpressions().get(0).getKey().equalsIgnoreCase("RAM") || preferredSchedulingTerm.getPreference().getMatchExpressions().get(0).getKey().equalsIgnoreCase("CPU_ST")) {
+                                    System.out.println("Key: " + preferredSchedulingTerm.getPreference().getMatchExpressions().get(0).getKey() + ": " + Integer.valueOf(preferredSchedulingTerm.getPreference().getMatchExpressions().get(0).getValues().get(0)));
+                            }
+                        });
+
                         SJFNScheduler.podList.addPodToList(pod);
 
-                        if(SJFNScheduler.unscheduledPods.getItems().size()>0) {
+                        if (SJFNScheduler.unscheduledPods.getItems().size() > 0) {
                             SJFNScheduler.unscheduledPods.getItems().add(pod);
                             break;
                         }
 
                         if (pod.getSpec().getNodeName() == null) {
                             Pair<Pod, Node> scheduledPair = SJFNScheduler.scheduleSJFN(pod).orElse(new Pair<>(pod, null)); // change scheduling approach here
-                            if(scheduledPair.getValue1() == null) {
+                            if (scheduledPair.getValue1() == null) {
                                 pod.getSpec().setNodeName(null);
                             } else {
                                 pod.getSpec().setNodeName(scheduledPair.getValue1().getMetadata().getName());
@@ -85,9 +92,10 @@ public class CurrentPodNodeStatus {
                     case MODIFIED:
                         break;
                     case DELETED:
-                        logger.info("["+ pod.getSpec().getContainers().get(0).getName() + "] - "+ "Pod deleted: " + pod.getMetadata().getName());
+                        logger.info("[" + pod.getSpec().getContainers().get(0).getName() + "] - " + "Pod deleted: " + pod.getMetadata().getName());
                         SJFNScheduler.podList.removePodFromList(pod);
-                        SJFNScheduler.scheduleSJFN( null);
+                        SJFNScheduler.scheduleSJFN(null);
+                        
                 }
 
             }

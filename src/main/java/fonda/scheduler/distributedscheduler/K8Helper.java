@@ -206,7 +206,7 @@ public class K8Helper {
             }
         });
 
-        return new Pair<>(Collections.min(maxNodes, Comparator.comparingDouble(NodeWithAlloc::getCurrent_cpu_as_Double).reversed()), value);
+        return new Pair<>(Collections.max(maxNodes, Comparator.comparingDouble(NodeWithAlloc::getCurrent_cpu_as_Double).reversed()), value);
 
     }
 }
